@@ -469,7 +469,7 @@
 
     async function startApp() {
         try {
-            const response = await fetch('../static/schedule.md');
+            const response = await fetch('./static/schedule.md');
             MARKDOWN_CONTENT = await response.text();
             initialize(); // only run after content is loaded
         } catch (error) {
