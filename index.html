@@ -19,7 +19,11 @@
     body {
       font-family: 'Inter', sans-serif;
       /* Using a high-quality, stable Unsplash URL for the background image. */
-      background: url('./assets/background.jxl') no-repeat center center fixed;
+      background: 
+        image-set(
+          url('./assets/background.jxl') no-repeat center center fixed;
+          url('./assets/background.webp') no-repeat center center fixed;
+        )
       background-size: cover;
       position: relative;
       color: #ffffff;
