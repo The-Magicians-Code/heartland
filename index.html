@@ -21,9 +21,9 @@
       /* Using a high-quality, stable Unsplash URL for the background image. */
       background: 
         image-set(
-          url('./assets/background.jxl') no-repeat center center fixed;
-          url('./assets/background.webp') no-repeat center center fixed;
-        )
+          url('./assets/background.jxl') type('image/jxl'),
+          url('./assets/background.webp') type('image/webp'),
+        ) no-repeat center center fixed;
       background-size: cover;
       position: relative;
       color: #ffffff;
