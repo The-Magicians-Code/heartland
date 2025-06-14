@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SoulZouk Retreat 2025</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    /* Base styles and background setup */
+    html {
+      scroll-behavior: smooth;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      /* Using a high-quality, stable Unsplash URL for the background image. */
+      background: url('https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=2070&auto=format&fit=crop') no-repeat center center fixed;
+      background-size: cover;
+      position: relative;
+      color: #ffffff;
+      min-height: 100vh;
+    }
+
+    /* Dark overlay for text readability over the background image */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(15, 23, 42, 0.8); /* Dark slate color for the overlay */
+      backdrop-filter: blur(2px); /* Subtle blur for a modern feel */
+      z-index: -1;
+    }
+    
+    /* Custom styles for filter checkboxes, ensuring good tap targets */
+    .filter-checkbox {
+      appearance: none;
+      background-color: transparent;
+      margin: 0;
+      font: inherit;
+      color: currentColor;
+      width: 1.15em;
+      height: 1.15em;
+      border: 0.1em solid currentColor;
+      border-radius: 0.25em;
+      transform: translateY(-0.075em);
+      display: grid;
+      place-content: center;
+      cursor: pointer;
+    }
+
+    .filter-checkbox::before {
+      content: "";
+      width: 0.65em;
+      height: 0.65em;
+      transform: scale(0);
+      transition: 120ms transform ease-in-out;
+      box-shadow: inset 1em 1em #22c55e; /* Green-500 checkmark */
+      transform-origin: bottom left;
+      clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+    }
+
+    .filter-checkbox:checked::before {
+      transform: scale(1);
+    }
+
+    /* This rule prevents the sticky navigation from overlapping the workshop that is scrolled into view. */
+    .day-section li {
+        scroll-margin-top: 10rem; /* Adjust this value if the nav height changes */
+    }
+
+  </style>
+</head>
+<body class="antialiased">
+
+  <div class="container mx-auto px-4 sm:px-6 py-6 max-w-4xl">
+    
+    <header class="text-center mb-6">
+      <h1 class="text-3xl md:text-4xl font-extrabold text-green-300 tracking-wide" style="text-shadow: 0 2px 8px rgba(34, 197, 94, 0.4);">SoulZouk Retreat '25</h1>
+    </header>
+
+    <nav class="bg-slate-900/50 backdrop-blur-sm rounded-xl p-4 mb-6 sticky top-4 z-10 border border-slate-700">
+        <div id="modes" class="flex items-center justify-center bg-slate-800 rounded-lg p-1 mb-4">
+            <button data-mode="interactive" class="mode-btn flex-1 py-2 px-4 text-sm font-semibold rounded-md transition-colors duration-300">Now</button>
+            <button data-mode="plain" class="mode-btn flex-1 py-2 px-4 text-sm font-semibold rounded-md transition-colors duration-300">Everything</button>
+            <button data-mode="grid" class="mode-btn flex-1 py-2 px-4 text-sm font-semibold rounded-md transition-colors duration-300">Image</button>
+        </div>
+        
+        <div id="filter-dropdown" class="relative">
+            <button id="filter-btn" class="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-4 py-2 flex justify-between items-center text-slate-300 hover:bg-slate-700/80 transition-colors">
+                <span>Filters</span>
+                <svg class="w-4 h-4 transition-transform duration-300" id="filter-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+            <div id="filter-options" class="hidden absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-700 rounded-lg p-4 z-20 space-y-2"></div>
+        </div>
+    </nav>
+
+    <main id="mode-content" class="space-y-8"></main>
+
+  </div>
+
+  <script>
+    // --- CONFIG ---
+    let MARKDOWN_CONTENT = "";
+
+    // --- STATE ---
+    let schedule = null;
+    let mode = 'interactive';
+    let selectedFilters = [];
+    let debugTime = null; // For testing purposes
+
+    // --- DOM ELEMENTS ---
+    const modeContentEl = document.getElementById('mode-content');
+    const modeBtns = document.querySelectorAll('.mode-btn');
+    const filterDropdown = document.getElementById('filter-dropdown');
+    const filterBtn = document.getElementById('filter-btn');
+    const filterOptions = document.getElementById('filter-options');
+    const filterArrow = document.getElementById('filter-arrow');
+
+    // --- TIME FUNCTIONS ---
+    function getCurrentDateTime() {
+      if (debugTime) {
+        const elapsed = Math.floor((Date.now() - debugTime.setAt) / 1000);
+        return new Date(debugTime.base.getTime() + elapsed * 1000);
+      }
+      return new Date();
+    }
+    
+    function pad(n) { return n < 10 ? '0' + n : n; }
+    
+    function getDayName(date) {
+        const map = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        return map[date.getDay()];
+    }
+
+    function timeObjToStr(t) { return t ? `${pad(t.h)}:${pad(t.m)}` : ''; }
+
+    function timeToMinutes(t) { return t ? t.h * 60 + t.m : 0; }
+    
+    // --- PARSING ---
+    function parseTime(str) {
+      const [from, to] = str.split('-');
+      const [fh, fm] = from.split(':').map(Number);
+      let th = null, tm = null;
+      if (to) [th, tm] = to.split(':').map(Number);
+      return {
+        from: { h: fh, m: fm },
+        to: th !== null ? { h: th, m: tm } : null
+      };
+    }
+
+    function parseSchedule(md) {
+      const lines = md.split(/\r?\n/);
+      let days = [];
+      let curDay = null;
+      const filterSet = new Set();
+      let filterOrder = [];
+
+      const dayRE = /^###\s+([A-Za-z]+)/;
+      const itemRE = /^-\s+(\d{2}:\d{2}(?:-\d{2}:\d{2})?):\s+(.+)/;
+      const filterListRE = /^(?:filters|filters:)\s*:?[\u0000]*\[?([^\]\n]+)\]?/i;
+
+      for (const line of lines) {
+        const l = line.trim();
+        const dayM = l.match(dayRE);
+        if (dayM) {
+          curDay = { name: dayM[1], items: [] };
+          days.push(curDay);
+          continue;
+        }
+        
+        const filterListM = l.match(filterListRE);
+        if (filterListM) {
+          filterOrder = filterListM[1].split(',').map(s => s.trim());
+          continue;
+        }
+
+        const itemM = l.match(itemRE);
+        if (itemM && curDay) {
+          const [_, time, rest] = itemM;
+          const levels = [...rest.matchAll(/_\(([^)]+)\)_/g)].map(m => m[1]);
+          levels.forEach(lvl => filterSet.add(lvl));
+          const title = rest.replace(/_\([^)]+\)_/g, '').replace(/\*\*/g, '').trim();
+          curDay.items.push({ time: parseTime(time), title: title, levels: levels });
+        }
+      }
+      
+      const allFilters = Array.from(filterSet);
+      const ordered = filterOrder.filter(f => allFilters.includes(f));
+      const rest = allFilters.filter(f => !filterOrder.includes(f)).sort();
+      const filters = ordered.concat(rest);
+      
+      return { days, filters };
+    }
+
+    // --- DATA & STATE LOGIC ---
+    function getCurrentItem() {
+        if (!schedule) return null;
+        const now = getCurrentDateTime();
+        const todayName = getDayName(now);
+        const today = schedule.days.find(d => d.name === todayName);
+        if (!today) return null;
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+        return today.items.find(it => {
+            const fromMin = timeToMinutes(it.time.from);
+            const toMin = it.time.to ? timeToMinutes(it.time.to) : fromMin + 60;
+            return nowMin >= fromMin && nowMin < toMin;
+        }) || null;
+    }
+
+    // --- RENDERING ---
+    function updateFilterButtonText() {
+        const btnText = filterBtn.querySelector('span');
+        if (selectedFilters.length === 0) {
+            btnText.textContent = 'Filters';
+        } else if (selectedFilters.length === 1) {
+            btnText.textContent = selectedFilters[0];
+        } else {
+            btnText.textContent = `${selectedFilters.length} filters selected`;
+        }
+    }
+
+    // **MODIFIED** This function now dynamically adds a "Clear All" button.
+    function renderFilters() {
+        if (!schedule || !schedule.filters.length) {
+            filterDropdown.classList.add('hidden');
+            return;
+        }
+        filterDropdown.classList.remove('hidden');
+
+        let optionsHtml = schedule.filters.map(f => `
+            <label class="flex items-center gap-3 cursor-pointer hover:text-white p-1 rounded-md hover:bg-slate-800">
+              <input type="checkbox" value="${f}" class="filter-checkbox" ${selectedFilters.includes(f) ? 'checked' : ''}>
+              <span class="text-slate-200">${f}</span>
+            </label>
+        `).join('');
+
+        // If any filters are selected, add the "Clear All" button
+        if (selectedFilters.length > 0) {
+            optionsHtml += `
+                <div class="pt-2 mt-2 border-t border-slate-700">
+                    <button id="clear-filters-btn" class="w-full text-center py-2 px-4 text-sm font-semibold rounded-md text-amber-300 hover:bg-slate-800 transition-colors">
+                        Clear All Filters
+                    </button>
+                </div>
+            `;
+        }
+        
+        filterOptions.innerHTML = optionsHtml;
+        updateFilterButtonText();
+
+        // Attach listeners for the checkboxes
+        filterOptions.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            checkbox.onchange = () => {
+                selectedFilters = Array.from(filterOptions.querySelectorAll('input:checked')).map(cb => cb.value);
+                renderFilters(); // Re-render to show/hide the clear button
+                renderModeContent();
+            };
+        });
+
+        // Attach listener for the "Clear All" button if it exists
+        const clearBtn = document.getElementById('clear-filters-btn');
+        if (clearBtn) {
+            clearBtn.onclick = () => {
+                selectedFilters = [];
+                renderFilters(); // Re-render to uncheck boxes and hide the button
+                renderModeContent();
+            };
+        }
+    }
+
+    function renderModeContent() {
+      switch(mode) {
+        case 'interactive': renderInteractive(); break;
+        case 'plain': renderPlain(); break;
+        case 'grid': renderGrid(); break;
+      }
+    }
+    
+    function renderInteractive() {
+        if (!schedule) {
+            modeContentEl.innerHTML = '<p>Loading schedule...</p>';
+            return;
+        }
+        const now = getCurrentDateTime();
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+        const todayName = getDayName(now);
+        const todayIdx = schedule.days.findIndex(d => d.name === todayName);
+
+        if (todayIdx === -1) {
+            modeContentEl.innerHTML = '<p class="text-center text-slate-400 py-8">No events scheduled for today or any upcoming days.</p>';
+            return;
+        }
+
+        let html = '';
+        for (let d = todayIdx; d < schedule.days.length; d++) {
+            const day = schedule.days[d];
+            const isToday = d === todayIdx;
+
+            const itemsToDisplay = day.items.filter(it => {
+                const fromMin = timeToMinutes(it.time.from);
+                const toMin = it.time.to ? timeToMinutes(it.time.to) : fromMin + 60;
+                const isCurrent = isToday && nowMin >= fromMin && nowMin < toMin;
+                const isRelevant = isToday ? toMin > nowMin : true;
+
+                if (!isRelevant) {
+                    return false;
+                }
+
+                const matchesFilter = selectedFilters.length === 0 || it.levels.some(l => selectedFilters.includes(l));
+                return isCurrent || matchesFilter;
+            });
+            
+            if (itemsToDisplay.length === 0) {
+                continue;
+            }
+
+            let dayHtml = itemsToDisplay.map((it) => {
+                const fromMin = timeToMinutes(it.time.from);
+                const toMin = it.time.to ? timeToMinutes(it.time.to) : fromMin + 60;
+                let stateClass = 'bg-slate-800/50';
+                let timeClass = 'text-slate-400';
+                let titleClass = 'text-white';
+                
+                if (isToday && nowMin >= fromMin && nowMin < toMin) {
+                    stateClass = 'bg-green-800/90 border-2 border-green-500 shadow-lg shadow-green-500/30';
+                    timeClass = 'text-green-200';
+                    titleClass = 'text-green-100 font-bold';
+                }
+
+                const levelsHtml = it.levels.map(lvl => `<span class="inline-block bg-green-600/80 text-green-100 text-xs font-semibold mr-2 px-3 py-1 rounded-full">${lvl}</span>`).join('');
+                return `
+                    <li class="${stateClass} p-4 rounded-lg flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 transition-all duration-300">
+                        <div class="flex-shrink-0 w-full sm:w-32 ${timeClass} font-medium text-left sm:text-center mb-2 sm:mb-0">
+                           ${timeObjToStr(it.time.from)} - ${timeObjToStr(it.time.to)}
+                        </div>
+                        <div class="flex-grow">
+                           <h3 class="text-lg ${titleClass} mb-2">${it.title}</h3>
+                           <div class="flex flex-wrap gap-2">${levelsHtml}</div>
+                        </div>
+                    </li>`;
+            }).join('');
+            html += `<div class="day-section"><h2 class="text-2xl font-bold text-green-300 mb-4">${day.name}</h2><ul class="space-y-3">${dayHtml}</ul></div>`;
+        }
+        modeContentEl.innerHTML = html || '<p class="text-center text-slate-400 py-8">No upcoming events match your filters.</p>';
+    }
+
+    function renderPlain() {
+        if (!schedule) return;
+        const currentItem = getCurrentItem();
+        let html = '';
+        schedule.days.forEach(day => {
+            const itemsHtml = day.items
+                .filter(it => {
+                    const isCurrent = it === currentItem;
+                    return selectedFilters.length === 0 || it.levels.some(l => selectedFilters.includes(l)) || isCurrent;
+                })
+                .map(it => {
+                    const isCurrent = it === currentItem;
+                    const stateClass = isCurrent ? 'bg-green-800/90 border-2 border-green-500 shadow-lg shadow-green-500/30' : 'bg-slate-800/50';
+                    const timeClass = isCurrent ? 'text-green-200' : 'text-slate-400';
+                    const titleClass = isCurrent ? 'text-green-100 font-bold' : 'text-white';
+                    const levelsHtml = it.levels.map(lvl => `<span class="inline-block bg-green-600/80 text-green-100 text-xs font-semibold mr-2 px-3 py-1 rounded-full">${lvl}</span>`).join('');
+                    return `
+                        <li class="${stateClass} p-4 rounded-lg flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 transition-all duration-300">
+                            <div class="flex-shrink-0 w-full sm:w-32 ${timeClass} font-medium text-left sm:text-center mb-2 sm:mb-0">
+                               ${timeObjToStr(it.time.from)} - ${timeObjToStr(it.time.to)}
+                            </div>
+                            <div class="flex-grow">
+                               <h3 class="text-lg ${titleClass} mb-2">${it.title}</h3>
+                               <div class="flex flex-wrap gap-2">${levelsHtml}</div>
+                            </div>
+                        </li>`;
+                }).join('');
+
+            if (!itemsHtml) return;
+            
+            html += `<div class="day-section"><h2 class="text-2xl font-bold text-green-300 mb-4">${day.name}</h2><ul class="space-y-3">${itemsHtml}</ul></div>`;
+        });
+        modeContentEl.innerHTML = html;
+    }
+
+    function renderGrid() {
+      modeContentEl.innerHTML = `
+        <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-700">
+            <div id="image-notice" class="text-center p-4 rounded-lg bg-amber-900/50 border border-amber-700">
+                <h3 class="text-lg font-semibold text-amber-300 mb-2">Note on Image Preview</h3>
+                <p class="text-sm text-amber-200/80 mb-4">The image view may not work correctly in this preview environment because it relies on loading a local file ('schedule.jpg'). This feature will work as expected when the website is hosted on a standard web server.</p>
+            </div>
+            <img src="schedule.jpg" alt="SoulZouk Retreat 2025 Schedule" class="rounded-lg w-full h-auto object-contain mt-4" onerror="this.style.display='none'; document.getElementById('image-notice').innerHTML = '<h3 class=&quot;text-lg font-semibold text-red-400&quot;>Image could not be loaded in this preview.</h3>'">
+        </div>
+      `;
+    }
+
+    // --- INITIALIZATION & EVENT LISTENERS ---
+    function setActiveMode(newMode) {
+        mode = newMode;
+        modeBtns.forEach(btn => {
+            if (btn.dataset.mode === mode) {
+                btn.classList.add('bg-green-500', 'text-white');
+                btn.classList.remove('text-slate-300');
+            } else {
+                btn.classList.remove('bg-green-500', 'text-white');
+                btn.classList.add('text-slate-300');
+            }
+        });
+        filterDropdown.style.display = (mode === 'grid') ? 'none' : 'flex';
+        renderModeContent();
+    }
+
+    function initialize() {
+      try {
+        schedule = parseSchedule(MARKDOWN_CONTENT);
+        
+        // --- Event Listeners ---
+        modeBtns.forEach(btn => {
+            btn.onclick = () => {
+                const newMode = btn.dataset.mode;
+                
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+                
+                if (newMode === mode) {
+                    return;
+                }
+                
+                setActiveMode(newMode);
+            };
+        });
+
+        filterBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isHidden = filterOptions.classList.toggle('hidden');
+            filterArrow.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(180deg)';
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!filterDropdown.contains(e.target)) {
+                filterOptions.classList.add('hidden');
+                filterArrow.style.transform = 'rotate(0deg)';
+            }
+        });
+
+        // Initial Render
+        renderFilters();
+        setActiveMode('interactive'); 
+
+        // Set up intervals for live updates
+        setInterval(() => {
+            if (mode === 'interactive' || mode === 'plain') {
+                renderModeContent(); // Rerender view to update status
+            }
+        }, 15000); // Update every 15 seconds
+
+      } catch (error) {
+        console.error('Failed to parse schedule:', error);
+        modeContentEl.innerHTML = '<p class="text-center text-red-400 py-8">Could not parse the schedule. Please check the data format.</p>';
+      }
+    }
+
+    async function startApp() {
+        try {
+            const response = await fetch('/schedule.md'); // assuming it's in public/
+            MARKDOWN_CONTENT = await response.text();
+            initialize(); // only run after content is loaded
+        } catch (error) {
+            console.error('Failed to load schedule markdown:', error);
+            document.getElementById('mode-content').innerHTML = `
+            <p class="text-center text-red-400 py-8">
+                Could not load the schedule file.
+            </p>`;
+        }
+    }
+
+    // Start the application
+    document.addEventListener('DOMContentLoaded', startApp);
+  </script>
+</body>
+</html>
