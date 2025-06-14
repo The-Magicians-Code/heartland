@@ -469,7 +469,8 @@
 
     async function startApp() {
         try {
-            const response = await fetch('./schedule.md');
+            // const response = await fetch('./schedule.md');
+            const response = await fetch('https://github.com/The-Magicians-Code/heartland/blob/main/schedule.md');
             MARKDOWN_CONTENT = await response.text();
             initialize(); // only run after content is loaded
         } catch (error) {
